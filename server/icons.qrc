@@ -1,0 +1,27 @@
+<RCC>
+    <qresource prefix="/toolbaricons">
+        <file>icons/advanced.png</file>
+        <file>icons/burn.png</file>
+        <file>icons/computer.png</file>
+        <file>icons/copy_file.png</file>
+        <file>icons/delete_archive.png</file>
+        <file>icons/exit.png</file>
+        <file>icons/globe.png</file>
+        <file>icons/graphite_computer_on.png</file>
+        <file>icons/ichat.png</file>
+        <file>icons/info.png</file>
+        <file>icons/install.png</file>
+        <file>icons/monitor.png</file>
+        <file>icons/picture.png</file>
+        <file>icons/podcast.png</file>
+        <file>icons/refresh.png</file>
+        <file>icons/terminal.png</file>
+        <file>icons/world.png</file>
+        <file>icons/users.png</file>
+        <file>icons/server.png</file>
+        <file>icons/keyboard.png</file>
+    </qresource>
+    <qresource prefix="/">
+        <file>icons/app.ico</file>
+    </qresource>
+</RCC>
