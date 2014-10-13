@@ -3,7 +3,7 @@
 #include "model.h"
 #include <assert.h>
 #include <QtCore/QFileInfo>
-#include <QtCore/QDebug>
+//#include <QtCore/QDebug>
 
 Download::Download(Server *server) {
 	this->server = server;

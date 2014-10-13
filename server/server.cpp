@@ -6,6 +6,7 @@
 #include <QtCore/QTime>
 #include <QtCore/QTimer>
 //#include <QtCore/QThread>
+#include <QtCore/QDebug>
 #include "server.h"
 #define NET_HEADERMARK "START"
 Server::Server(QObject *parent) :
@@ -30,7 +31,7 @@ void Server::acceptConnection()
         clientConnection->close();
         return;
     }
-    qDebug("新服务端.");
+    qDebug("New client");
     ClientInfo *clientInfo=new ClientInfo;
     clientInfo->client=clientConnection;
     clientInfo->time=QDateTime::currentDateTime().toString("MM-dd hh:mm:ss");
@@ -40,9 +41,9 @@ void Server::acceptConnection()
     clientInfo->remarks="";
     clientsList.append(clientInfo);
 
-    qDebug("有新连接！");
-
-    emit needRefreshItem(clientsList.count()-1,Refresh_Add);
+    qDebug("New connecton");
+	qDebug("clientsList.count = %d", clientsList.count());
+    emit needRefreshItem(clientsList.count()-1, Refresh_Add);
     //if(currentClientIndex<0) currentClientIndex=0;
     connect(clientConnection, SIGNAL(readyRead()), this, SLOT(dataReceived()));
     connect(clientConnection, SIGNAL(disconnected()),this,SLOT(disconnected()));
@@ -105,7 +106,7 @@ bool Server::sendToClient(QByteArray *data,QString client)
 
 void Server::dataReceived()
 {
-    qDebug("新数据");
+    qDebug("slot: Server::dataReceived()");
     QTcpSocket *svr=(QTcpSocket*)sender();
     //qDebug() << svr->objectName();
 
@@ -120,9 +121,9 @@ require:
     svr->read((char*)&bufferSize,sizeof(int32_t));
     if(svr->bytesAvailable()>=bufferSize)
     {
-        qDebug("新消息");
+	//qDebug("新消息");
 
-        qDebug() << bufferSize;
+	//qDebug() << bufferSize;
         QByteArray* data;
         //data=new QByteArray();
         data=new QByteArray(svr->read(bufferSize),bufferSize);
@@ -181,10 +182,12 @@ void Server::disconnected()
     {
 	if(clientsList[i]->client->state() == QTcpSocket::UnconnectedState)
         {
-	    clientsList.remove(i, 1);
+		qDebug("clientsList.count = %d", clientsList.count());
+	    clientsList.remove(i);
 	    emit needRefreshItem(i, Refresh_Remove);
-            qDebug("删除项");
+	    qDebug("Item removed");
             i--;
+	    qDebug("clientsList.count = %d", clientsList.count());
         }
     }
     if(clientsList.count() ==0) {
@@ -197,5 +200,5 @@ void Server::disconnected()
 
 void Server::displayError(QAbstractSocket::SocketError err)
 {
-    qDebug("网络错误 %d",err);
+	qWarning() << err;
 }

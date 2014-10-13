@@ -22,6 +22,7 @@
 #include <QtCore/QTextCodec>
 #include <QtGui/QColor>
 #include <assert.h>
+#include <stdio.h>
 
 MainWindow::MainWindow(QWidget *parent) :
     QMainWindow(parent),
@@ -77,45 +78,48 @@ void MainWindow::reFreshClientTable()
 
 void MainWindow::reFreshClientsList(ushort id,Server::RefreshType type)
 {
+	qDebug("slot: reFreshClientsList(%hu, %d)", id, type);
      QTreeWidgetItem *root;
      QStringList clientToAdd;
     //qDebug("function: reFreshClientsList: %d", ui->clientsList->topLevelItemCount());
      int last_count = ui->clientsList->topLevelItemCount();
-     qDebug("function: reFreshClientsList: last_count = %d", last_count);
+     qDebug("reFreshClientsList: last_count = %d", last_count);
     switch(type)
     {
     case Server::Refresh_Add:
         qDebug() << server->clientsList[id]->ip;
-        qDebug("添加成功");
+	assert(id == last_count);
         clientToAdd << server->clientsList[id]->ip << server->clientsList[id]->userName << server->clientsList[id]->computerName;
-        qDebug() << server->clientsList[id]->userName;
-        qDebug() << clientToAdd;
+	//qDebug() << server->clientsList[id]->userName;
+	//qDebug() << clientToAdd;
         root = new QTreeWidgetItem(this->ui->clientsList, clientToAdd);
 
         root->setIcon(0,QIcon(":/toolbaricons/icons/computer.png"));
         this->ui->clientsList->addTopLevelItem(root);
         //if(ui->clientsList->columnCount()==1)server->setCurrentIndex(0);
-        //qDebug("function: reFreshClientsList: Add: %d", ui->clientsList->topLevelItemCount());
+	qDebug("reFreshClientsList: Add: %d", ui->clientsList->topLevelItemCount());
         if(!last_count) {
             ui->clientsList->setCurrentItem(root);
             ui->clientAreaStackedWidget->setEnabled(true);
         }
         //ui->clientsList->setCurrentIndex();
-        //qDebug("Refresh_Add: %p", ui->clientsList->currentItem());
+	qDebug("Refresh_Add: %p", ui->clientsList->currentItem());
 	ui->clientsList->resizeColumnToContents(0);
         break;
     case Server::Refresh_Remove://有 问题 XXX: 延时问题
         root=this->ui->clientsList->takeTopLevelItem(id);
         //this->ui->clientsList->removeItemWidget(root,0);
-        qDebug("function: reFreshClientsList: Remove: %d", ui->clientsList->topLevelItemCount());
-        qDebug("function: reFreshClientsList: Remove: %d", ui->clientsList->topLevelItemCount());
+	qDebug("reFreshClientsList: Remove: %d", ui->clientsList->topLevelItemCount());
+	qDebug("last_count = %d, root = %p", last_count, root);
+	qDebug("reFreshClientsList: Remove: %d", ui->clientsList->topLevelItemCount());
         //if(server->clientsList.count()>0)
         //    this->ui->clientsList->itemAt(0,0)->setSelected(true);
         //qDebug("Refresh_Remove: %p", ui->clientsList->currentItem());
         //if(last_count) {
         if(last_count - 1) {
-	    this->ui->clientsList->itemAt(0, 0)->setSelected(true);
-        } else {//空
+	    if(root->isSelected()) this->ui->clientsList->itemAt(0, 0)->setSelected(true);
+	    //this->ui->clientsList
+	} else {		//空
             this->ui->clientAreaStackedWidget->setEnabled(false);
 	    this->ui->feedbackTextEdit->clear();
         }
@@ -124,11 +128,15 @@ void MainWindow::reFreshClientsList(ushort id,Server::RefreshType type)
         break;
     case Server::Refresh_Update:
         root=this->ui->clientsList->topLevelItem(id);
-        qDebug("root = %p", root);
-        root->setText(1,server->clientsList[id]->computerName);
-        root->setText(2,server->clientsList[id]->userName);
-        root->setText(3,server->clientsList[id]->uniqueID);
-        root->setText(4,server->clientsList[id]->remarks);
+	qDebug("id = %d\nroot = %p", id, root);
+	if(!root) {
+		qCritical("PANIC: Press ENTER to crash...");
+		getchar();
+	}
+	root->setText(1, server->clientsList[id]->computerName);
+	root->setText(2, server->clientsList[id]->userName);
+	root->setText(3, server->clientsList[id]->uniqueID);
+	root->setText(4, server->clientsList[id]->remarks);
 	if(this->ui->clientsList->currentItem()==root) {
             this->on_clientsList_currentItemChanged(root,NULL);
 	}
@@ -168,15 +176,23 @@ void MainWindow::on_uninstallAllButton_clicked()
 void MainWindow::on_sendMsgButton_clicked()
 {
      QByteArray *sendData;
-     QByteArray tmp;
+     QByteArray title, text, tmp;
      NetMessage msg;
-     tmp=this->ui->msgTitleEdit->text().toUtf8();
-     strcpy(msg.caption,tmp.data());
+     QTextCodec *codec = QTextCodec::codecForName("GB18030");
+	if(codec) {
+		title = codec->fromUnicode(ui->msgTitleEdit->text());
+		text = codec->fromUnicode(ui->msgBodyEdit->toPlainText());
+	} else {
+		QMessageBox::warning(this, tr("Enigma"), tr("GB18030 is not supported"));
+		title = ui->msgTitleEdit->text().toUtf8();
+		text = ui->msgBodyEdit->toPlainText().toUtf8();
+	}
+     strcpy(msg.caption, title.data());
      msg.mode=this->ui->MultiCheckBox->isChecked();
      msg.time=(short)this->ui->delayCloseSpinBox->value();
-     tmp.clear();
-     tmp.append((char*)&msg,sizeof(NetMessage));
-     tmp.append(this->ui->msgBodyEdit->toPlainText().toUtf8());
+     //tmp.clear();
+     tmp.append((char*)&msg, sizeof msg);
+     tmp.append(title);
      sendData= DataAnalysis::modulateData(DataAnalysis::ToClient_Message,&tmp);
      server->sendToCurrentClient(*sendData);
      delete sendData;
@@ -299,14 +315,13 @@ void MainWindow::dataReceived(short int index,QByteArray *data)
 			break;
 		case DataAnalysis::ToServer_ConnectionInfo:
 		{
-			qDebug("Connection Info.");
+			qDebug("DataAnalysis::ToServer_ConnectionInfo");
 			ConnectionInfo *connInfo;
 			//DataPtr;
 			//bool replace_old = false;
 			int replace_old_index = -1;
 
 			connInfo=(ConnectionInfo*)result->constData();//->data();
-			qDebug("MainWindow::dataReceived: computerName: %s, idx = %hd", connInfo->computerName, index);
 			QByteArray id(connInfo->uniqueID,16);
 			for(int i=0; i<server->getClientsCount(); i++) {
 				if(server->clientsList[i]->uniqueID == id) {
@@ -326,12 +341,18 @@ void MainWindow::dataReceived(short int index,QByteArray *data)
 			server->clientsList[index]->userName = QString(connInfo->userName);
 			server->clientsList[index]->uniqueID = id;
 			reFreshClientsList(index, Server::Refresh_Update);
-			if(replace_old_index >= 0) server->clientsList[replace_old_index]->client->abort();
+			if(replace_old_index >= 0) {
+				QTreeWidgetItem *item = ui->clientsList->topLevelItem(replace_old_index);
+				if(item && item->isSelected()) {
+					item->setSelected(false);
+					ui->clientsList->topLevelItem(index)->setSelected(true);
+				}
+				server->clientsList[replace_old_index]->client->abort();
+			}
 			break;
 		}
 		case DataAnalysis::ToServer_CloseMessageBox:
 		{
-			qDebug("关闭消息");
 			QString title;
 			title=QString("来自 %1 的消息反馈").arg(server->clientsList[index]->getRemarks());
 			temp.append(*result);
@@ -381,7 +402,6 @@ void MainWindow::dataReceived(short int index,QByteArray *data)
 				case Tr::Trunc:
 					if(feedback->size<0)
 					{
-						qDebug("打开文件失败");
 						this->ui->readyUploadButton->setEnabled(true);
 					}else{
 						upload->requestSendData();
@@ -393,7 +413,6 @@ void MainWindow::dataReceived(short int index,QByteArray *data)
 					qDebug("upload trunc/append back");
 					if(feedback->size<0)
 					{
-						qDebug("打开文件失败");
 						this->ui->readyUploadButton->setEnabled(true);
 					}else{
 						upload->requestSendData();
@@ -403,7 +422,6 @@ void MainWindow::dataReceived(short int index,QByteArray *data)
 				case Tr::Data:
 					if(feedback->size<0)
 					{
-						qDebug("数据传输失败。");
 						this->ui->readyUploadButton->setEnabled(true);
 						upload->requestTerminate();
 						//emit startUploadHandler(Upload::Terminate,0);
@@ -470,13 +488,13 @@ void MainWindow::dataReceived(short int index,QByteArray *data)
 					break;
 				}
 				default:
-					qDebug(__FILE__ ":%d: warning: dataReceived: case DataAnalysis::ToServer_DownloadFileBack: unknown 'feedback->flag' %d", __LINE__, feedback->flag);
+					qWarning(__FILE__ ":%d: warning: dataReceived: case DataAnalysis::ToServer_DownloadFileBack: unknown 'feedback->flag' %d", __LINE__, feedback->flag);
 					break;
 			}
 			break;
 		}
 		case DataAnalysis::TypeError:
-			qDebug("解析错误");
+			qWarning("DataAnalysis::TypeError");
 			delete data;
 			return;
 	}
@@ -584,20 +602,20 @@ void MainWindow::on_keepListenAction_triggered(bool checked)
 
 void MainWindow::on_clientsList_currentItemChanged(QTreeWidgetItem *current, QTreeWidgetItem *previous)
 {
-    if(current==0||current->treeWidget()->currentIndex().row()<0)
-    {
-        qDebug("currentItemChanged()  row<0");
-        return;
-    }
-    int idx=current->treeWidget()->currentIndex().row();
-    server->setCurrentIndex(idx);
-    this->ui->feedbackTextEdit->setText(server->getCurrentClientInfo()->batchScreenBuffer);
-    //bool empty=current->treeWidget()->currentItem()->text(4).isEmpty();
-    //this->ui->currentClientEdit->setText(current->treeWidget()->currentItem()->text(empty?1:4)+" | "+current->treeWidget()->currentItem()->text(0));
-    QString display = current->treeWidget()->currentItem()->text(4);
-    if(display.isEmpty()) display = current->treeWidget()->currentItem()->text(1);
-    else display += " | " + current->treeWidget()->currentItem()->text(1);
-    this->ui->currentClientEdit->setText(display);
+	if(current==0 || current->treeWidget()->currentIndex().row()<0)
+	{
+		qDebug("currentItemChanged()  row < 0");
+		return;
+	}
+	int idx=current->treeWidget()->currentIndex().row();
+	server->setCurrentIndex(idx);
+	this->ui->feedbackTextEdit->setText(server->getCurrentClientInfo()->batchScreenBuffer);
+	//bool empty=current->treeWidget()->currentItem()->text(4).isEmpty();
+	//this->ui->currentClientEdit->setText(current->treeWidget()->currentItem()->text(empty?1:4)+" | "+current->treeWidget()->currentItem()->text(0));
+	QString display = current->treeWidget()->currentItem()->text(4);
+	if(display.isEmpty()) display = current->treeWidget()->currentItem()->text(1);
+	else display += " | " + current->treeWidget()->currentItem()->text(1);
+	this->ui->currentClientEdit->setText(display);
 }
 
 

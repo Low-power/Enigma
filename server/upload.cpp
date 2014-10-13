@@ -133,7 +133,8 @@ void Upload::run()
 
     delete sendBuf;
     //QMessageBox::information(0,"提示","数据推送完毕");
-    qDebug("数据推送完毕");
+    //qDebug("数据推送完毕");
+    qDebug("The end of upload thread");
 }
 
 /*

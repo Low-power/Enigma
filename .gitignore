@@ -1,0 +1,10 @@
+*~
+*.o
+*.swp
+*.i
+*.orig
+*.exe
+moc_*.cpp
+ui_*.h
+.directory
+a.out
